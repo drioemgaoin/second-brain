@@ -3,6 +3,9 @@
 //
 // Claude Code connects here (http://localhost:3001/mcp) instead of hitting
 // GBrain directly. This keeps the API as the single entry point.
+//
+// The `instructions` field in the initialize response tells Claude how to
+// behave — no CLAUDE.md needed on the user's side.
 // ---------------------------------------------------------------------------
 
 import { Hono } from "hono";
@@ -17,14 +20,61 @@ import { slugify } from "./lib/slugify.js";
 
 const mcp = new Hono();
 
+// -- Server instructions (sent on initialize) --------------------------------
+
+const INSTRUCTIONS = `You are connected to a personal knowledge base ("second brain").
+Use these tools to search, read, create, edit, and delete notes.
+
+IMPORTANT RULES:
+- Always use these MCP tools for note operations. Never write note files directly.
+- Before creating a note, search first to avoid duplicates.
+
+WHEN THE USER ASKS TO CREATE A NOTE FROM A CONVERSATION:
+1. Identify the main topic and choose the best area (ai-learning, quantum-physics, hiring, or others).
+2. Call search_notes to check for duplicates. If a similar note exists, suggest updating it instead.
+3. Analyze the conversation and structure the content using this template:
+
+## Summary
+One paragraph capturing the core insight.
+
+## Key takeaways
+- Bullet points of the most important points
+
+## Details
+Organized content under descriptive headings.
+
+## Action items
+- Concrete next steps (omit if none)
+
+## Open questions
+- Unanswered questions worth exploring (omit if none)
+
+4. Show the user a preview of the proposed title, area, tags, and content.
+5. Wait for confirmation before calling create_note.
+
+Generate 3-5 descriptive tags (always include the area). If the conversation covered multiple distinct topics, suggest separate notes.
+
+WHEN THE USER ASKS TO EDIT A NOTE:
+1. Fetch it with get_note (or search_notes if the reference is vague).
+2. Show the current content.
+3. Ask what to change.
+4. Apply changes while preserving everything not asked to change.
+5. Show what changed, confirm, then call update_note.
+
+WHEN THE USER ASKS TO DELETE A NOTE:
+1. Fetch and show the note first.
+2. Ask for explicit confirmation.
+3. Call delete_note. Inform the user it is recoverable for 72 hours.`;
+
 // -- Tool definitions --------------------------------------------------------
 
 const TOOLS = [
   {
     name: "search_notes",
     description:
-      "Search notes in the second brain using semantic + keyword search. " +
-      "Returns the most relevant chunks with their slug, title, content, and score.",
+      "Search notes in the knowledge base using semantic and keyword search. " +
+      "Returns the most relevant chunks with slug, title, content, and relevance score. " +
+      "Use this before creating a note to check for duplicates, and whenever the user asks a question about their notes.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -43,7 +93,9 @@ const TOOLS = [
   {
     name: "list_notes",
     description:
-      "List all notes, optionally filtered by area (e.g. ai-learning, hiring, quantum-physics, others).",
+      "List all notes, optionally filtered by area. " +
+      "Areas: ai-learning, quantum-physics, hiring, others. " +
+      "Use this when the user wants to browse or see what notes they have.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -62,7 +114,8 @@ const TOOLS = [
   {
     name: "get_note",
     description:
-      "Get the full content of a single note by its slug (e.g. ai-learning/rag-evaluation).",
+      "Get the full content of a single note by its slug (e.g. ai-learning/rag-evaluation). " +
+      "Use this to read a note before editing or when the user wants to see its content.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -76,7 +129,10 @@ const TOOLS = [
   },
   {
     name: "create_note",
-    description: "Create a new note in the second brain.",
+    description:
+      "Create a new note in the knowledge base. " +
+      "Before calling this, always: (1) search for duplicates, (2) structure the content with Summary, Key Takeaways, and Details sections, (3) show the user a preview and get confirmation. " +
+      "Generate 3-5 descriptive tags. Always include the area as a tag.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -89,7 +145,7 @@ const TOOLS = [
         tags: {
           type: "array",
           items: { type: "string" },
-          description: "Tags for the note",
+          description: "Tags for the note (3-5 recommended)",
         },
         content: {
           type: "string",
@@ -101,7 +157,10 @@ const TOOLS = [
   },
   {
     name: "update_note",
-    description: "Update an existing note by slug.",
+    description:
+      "Update an existing note by slug. " +
+      "Before calling this, always: (1) fetch the current note with get_note, (2) show the user what will change, (3) get confirmation. " +
+      "Preserve content that was not asked to change.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -120,7 +179,9 @@ const TOOLS = [
   },
   {
     name: "delete_note",
-    description: "Delete a note by slug (soft delete, recoverable for 72h).",
+    description:
+      "Soft-delete a note by slug. Recoverable for 72 hours. " +
+      "Before calling this, always fetch the note and ask the user for explicit confirmation.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -228,6 +289,7 @@ mcp.post("/", async (c) => {
           capabilities: {
             tools: {},
           },
+          instructions: INSTRUCTIONS,
         },
       });
 

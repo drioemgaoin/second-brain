@@ -30,6 +30,8 @@ A note created in one appears in the other instantly.
   - [Deploy the chat frontend to Cloudflare Pages](#2-deploy-the-chat-frontend-to-cloudflare-pages)
   - [Import your notes to production](#3-import-your-notes-to-production)
 - [For users: accessing a deployed brain](#for-users-accessing-a-deployed-brain)
+  - [Web chatbot](#web-chatbot-any-device)
+  - [Claude Code (desktop + mobile)](#claude-code-desktop--mobile)
 - [Environment variables](#environment-variables)
 - [Makefile commands](#makefile-commands)
 - [Scaling with Postgres](#scaling-with-postgres)
@@ -135,9 +137,9 @@ Browse, create, edit, and delete notes through a visual interface:
 
 ## Using Claude Code CLI
 
-Start the stack (`make dev` or at least `make up && make serve & make api-dev`), then open Claude Code in this project directory.
+Start the stack (`make dev` or at least `make up && make serve & make api-dev`), then open Claude Code in this project directory. Just talk naturally — Claude uses the brain's MCP tools automatically.
 
-### Querying your notes
+### Searching
 
 ```
 > What did I write about RAG evaluation?
@@ -147,39 +149,31 @@ Start the stack (`make dev` or at least `make up && make serve & make api-dev`),
 
 ### Creating notes from conversations
 
-Have a conversation about any topic, then ask Claude to save it:
+Have a conversation about any topic, then ask Claude to save it. Claude will structure the content, show you a preview, and ask for confirmation before saving:
 
 ```
 > Save a note about what we just discussed.
-  Area: ai-learning, slug: ai-learning/rag-chunking-strategies
+> Capture our conversation as a note in ai-learning.
+> Create a note from this with key takeaways and action items.
 ```
 
-Or with structure:
-
-```
-> Create a note from our conversation with:
-  - A one-paragraph summary
-  - Key takeaways as bullet points
-  - Any action items
-  Save it as ai-learning/rag-chunking-strategies
-```
-
-### Editing and deleting
+### Editing
 
 ```
 > Show me my note on rag-evaluation.
 > Add a section about RAGAS metrics to my rag-evaluation note.
-> Delete my note hiring/old-draft.
+> Update my hiring pipeline note with what we just discussed.
 ```
 
-Deletes are soft — recoverable for 72 hours.
-
-### Browsing
+### Browsing and deleting
 
 ```
 > List my recent notes.
 > Show me all notes in the ai-learning area.
+> Delete my note hiring/old-draft.
 ```
+
+Deletes are soft — recoverable for 72 hours.
 
 ## Notes and areas
 
@@ -399,31 +393,43 @@ make deploy-import
 
 Once deployed, there are two ways to use the brain:
 
-### Web chatbot (any device — desktop, tablet, mobile)
+### Web chatbot (any device)
 
 Visit the Cloudflare Pages URL (e.g., `https://chat.yourdomain.com`) in any browser. No installation needed.
 
 - **Chat tab** — ask questions in natural language, get answers from the knowledge base
 - **Notes tab** — browse, create, edit, and delete notes with a visual editor
 
-### Claude Code CLI (desktop)
+### Claude Code (desktop + mobile)
 
-Connect your local Claude Code to the deployed brain:
+Run the install script once on your computer. It sets up both desktop and mobile:
 
 ```bash
-# One-time setup — register the remote MCP endpoint:
-claude mcp add --transport http second-brain https://api.yourdomain.com/mcp
+curl -sL https://raw.githubusercontent.com/yourusername/second-brain/main/install.sh | bash -s https://api.yourdomain.com
 ```
 
-Then open Claude Code anywhere on your machine and ask questions:
+This does three things:
+1. **Desktop** — registers the MCP endpoint and installs the brain skill globally
+2. **Mobile** — creates a workspace repo at `~/second-brain-workspace/` with the MCP config and skill
+3. **Permissions** — pre-approves all brain MCP tools
+
+#### Desktop
+
+Already working after the install. Open Claude Code in any project and talk naturally:
 
 ```
 > What did I write about RAG evaluation?
 > Create a note from our conversation about embeddings.
-> List my recent notes in the ai-learning area.
+> List my recent notes in ai-learning.
 ```
 
-Claude Code discovers the brain's tools (search, create, edit, delete) automatically via MCP.
+#### Mobile
+
+The install script automatically pushes a private `second-brain-workspace` repo to your GitHub. Open it in claude.ai/code on your phone — the brain skill and MCP tools are loaded from the repo.
+
+#### How it works
+
+The brain skill auto-triggers when you mention notes, your brain, or knowledge base. It tells Claude to always use the MCP tools — never write files directly. When you create a note, Claude searches for duplicates, structures the content with a template, shows a preview, and waits for your confirmation. This works identically on desktop and mobile.
 
 ---
 

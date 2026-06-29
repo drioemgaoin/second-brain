@@ -1,3 +1,5 @@
+# When API_DOMAIN is an IP, Caddy serves plain HTTP (no TLS).
+# When it's a real domain, Caddy auto-provisions HTTPS via Let's Encrypt.
 {$API_DOMAIN} {
 	reverse_proxy api:3001
 }

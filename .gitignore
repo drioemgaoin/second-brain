@@ -1,21 +1,23 @@
-# --- Private notes: never pushed to the public repo ---
-# Ignore all note CONTENT under notes/, but keep the folder structure,
-# the .gitkeep markers, and the README files so a clone shows the layout.
-notes/**
-!notes/**/
+# Private notes (never pushed)
+notes/
 !notes/.gitkeep
-!notes/README.md
-!notes/**/.gitkeep
-!notes/**/README.md
 
 # Secrets / local config
 .env
+app/api/.env
+app/chat/.env.local
 
-# OS / editor junk
+# OS / editor
 .DS_Store
 *.swp
 .idea/
 .vscode/
 
-# Local GBrain dir if you ever point it inside the project
+# GBrain local database
 .gbrain/
+
+# Node / Next.js
+node_modules/
+app/api/dist/
+app/chat/.next/
+app/chat/out/

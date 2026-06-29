@@ -31,7 +31,7 @@ gbrain init --pglite --embedding-model "$EMBEDDING_MODEL"
 gbrain doctor
 
 echo "==> Loading public example notes (all areas)"
-gbrain import examples/
+gbrain import brain/examples/
 
 if find notes -name '*.md' ! -name 'README.md' | grep -q .; then
   echo "==> Loading your private notes"

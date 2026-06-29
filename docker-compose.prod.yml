@@ -1,0 +1,64 @@
+# Production stack for VPS deployment
+# Usage:
+#   cp deploy/.env.example .env   (edit with your domain)
+#   make deploy-build
+#   make deploy-up
+#   make deploy-pull-model
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: second-brain-ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  gbrain:
+    build:
+      context: ./deploy/gbrain
+    container_name: second-brain-gbrain
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      EMBEDDING_MODEL: "ollama:nomic-embed-text"
+    volumes:
+      - gbrain-data:/root/.gbrain
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./app/api
+    container_name: second-brain-api
+    environment:
+      GBRAIN_URL: http://gbrain:3002
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      CHAT_MODEL: ${CHAT_MODEL:-llama3.2}
+      PORT: "3001"
+    depends_on:
+      - gbrain
+      - ollama
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: second-brain-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  ollama-data:
+  gbrain-data:
+  caddy-data:
+  caddy-config:

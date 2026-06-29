@@ -1,0 +1,37 @@
+# second-brain — local services
+#
+# Default: runs Ollama only (the free embedding service).
+# GBrain itself runs on your host with PGLite (files, no server), which keeps
+# the Claude Code stdio link simple.
+#
+# Optional: uncomment the `postgres` service to containerize the database too.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: second-brain-ollama
+    ports:
+      - "11434:11434"          # GBrain reaches this at http://localhost:11434/v1
+    volumes:
+      - ollama-data:/root/.ollama   # pulled models persist across restarts
+    restart: unless-stopped
+
+  # --- Optional: Postgres + pgvector (for the "full Docker" upgrade) ---
+  # Uncomment this block only if you switch GBrain from PGLite to Postgres.
+  #
+  # postgres:
+  #   image: pgvector/pgvector:pg17
+  #   container_name: second-brain-postgres
+  #   environment:
+  #     POSTGRES_USER: gbrain
+  #     POSTGRES_PASSWORD: gbrain
+  #     POSTGRES_DB: gbrain
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+volumes:
+  ollama-data:
+  # postgres-data:

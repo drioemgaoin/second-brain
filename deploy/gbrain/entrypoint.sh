@@ -15,4 +15,4 @@ if [ ! -f /root/.gbrain/config.json ]; then
 fi
 
 echo "Starting GBrain HTTP server on port 3002..."
-exec gbrain serve --http --port 3002 --enable-dcr
+exec gbrain serve --http --port 3002 --host 0.0.0.0 --enable-dcr

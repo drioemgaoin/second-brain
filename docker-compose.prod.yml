@@ -75,6 +75,18 @@ services:
       - api
     restart: unless-stopped
 
+  # Cloudflare Tunnel — exposes API over HTTPS without a domain.
+  # After startup, run: docker logs second-brain-tunnel
+  # to find your public URL (https://xxx.trycloudflare.com).
+  # Set that URL as NEXT_PUBLIC_API_URL in Cloudflare Pages.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: second-brain-tunnel
+    command: tunnel --no-autoupdate --url http://api:3001
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   ollama-data:
   gbrain-data:

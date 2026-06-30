@@ -21,6 +21,8 @@ app.use(
       // Support comma-separated origins
       const origins = allowed.split(",").map((o) => o.trim());
       if (origin && origins.includes(origin)) return origin;
+      // Allow Cloudflare Tunnel quick-tunnel origins
+      if (origin && origin.endsWith(".trycloudflare.com")) return origin;
       return origins[0];
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

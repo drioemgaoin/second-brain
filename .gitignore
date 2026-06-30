@@ -6,6 +6,8 @@
 .env
 app/api/.env
 app/chat/.env.local
+deploy/cloudflared/credentials.json
+deploy/cloudflared/config.yml
 
 # OS / editor
 .DS_Store

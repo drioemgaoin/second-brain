@@ -24,5 +24,9 @@ jobs:
           script: |
             cd ~/second-brain
             git pull origin main
+            if [ ! -f deploy/cloudflared/credentials.json ]; then
+              echo "ERROR: Tunnel not configured. Run 'bash deploy/setup-tunnel.sh' on this VPS first."
+              exit 1
+            fi
             make deploy-build
             make deploy-up

@@ -76,14 +76,15 @@ services:
       - api
     restart: unless-stopped
 
-  # Cloudflare Tunnel — exposes API over HTTPS without a domain.
-  # After startup, run: docker logs second-brain-tunnel
-  # to find your public URL (https://xxx.trycloudflare.com).
-  # Set that URL as NEXT_PUBLIC_API_URL in Cloudflare Pages.
+  # Cloudflare Named Tunnel — stable HTTPS URL for the API.
+  # Requires credentials file at deploy/cloudflared/credentials.json
+  # URL: https://<tunnel-id>.cfargotunnel.com
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: second-brain-tunnel
-    command: tunnel --no-autoupdate --url http://api:3001
+    command: tunnel --no-autoupdate --config /home/nonroot/.cloudflared/config.yml run
+    volumes:
+      - ./deploy/cloudflared:/home/nonroot/.cloudflared:ro
     depends_on:
       - api
     restart: unless-stopped

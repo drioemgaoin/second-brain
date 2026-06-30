@@ -1,52 +1,31 @@
 #!/bin/sh
 
+# Export OLLAMA_HOST so gbrain commands use the right URL
+export OLLAMA_HOST="${OLLAMA_HOST:-http://ollama:11434}"
+
 # Wait for Ollama to be reachable
 echo "Waiting for Ollama..."
-until curl -sf "${OLLAMA_HOST:-http://ollama:11434}/api/tags" > /dev/null 2>&1; do
+until curl -sf "${OLLAMA_HOST}/api/tags" > /dev/null 2>&1; do
   sleep 2
 done
 echo "Ollama is ready."
 
-OLLAMA_URL="${OLLAMA_HOST:-http://ollama:11434}"
 CONFIG=/root/.gbrain/config.json
 
 # Initialize the brain if it doesn't exist
 if [ ! -f "$CONFIG" ]; then
-  echo "Initializing GBrain..."
-  gbrain init --pglite --embedding-model "${EMBEDDING_MODEL:-ollama:nomic-embed-text}" || true
-
-  # If init failed or didn't create config, write it manually
-  if [ ! -f "$CONFIG" ]; then
-    echo "Writing config.json manually..."
-    cat > "$CONFIG" << CONF
-{
-  "engine": "pglite",
-  "database_path": "/root/.gbrain/brain.pglite",
-  "ollama_host": "$OLLAMA_URL",
-  "embedding_model": "ollama:nomic-embed-text",
-  "embedding_dimensions": 768,
-  "schema_pack": "gbrain-base-v2",
-  "mcp": {
-    "publish_skills": true
-  },
-  "self_upgrade": {
-    "mode": "notify",
-    "mode_prompted": true
-  }
-}
-CONF
-  fi
+  echo "Initializing GBrain (OLLAMA_HOST=$OLLAMA_HOST)..."
+  gbrain init --pglite --skip-embed-check --embedding-model "${EMBEDDING_MODEL:-ollama:nomic-embed-text}"
 fi
 
-# Ensure ollama_host is set in config (patch via awk)
+# Ensure ollama_host is set in config
 TMP=/tmp/config_patched.json
-awk -v url="$OLLAMA_URL" '
+awk -v url="$OLLAMA_HOST" '
   NR==1 { print; if (!/ollama_host/) print "  \"ollama_host\": \"" url "\","; next }
   /\"ollama_host\"/ { print "  \"ollama_host\": \"" url "\","; next }
   { print }
 ' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"
-echo "Config ready (ollama_host=$OLLAMA_URL)"
-cat "$CONFIG"
+echo "Config ready (ollama_host=$OLLAMA_HOST)"
 
 # GBrain binds to 127.0.0.1 only — use socat to expose on 0.0.0.0
 echo "Starting GBrain HTTP server on port 3002..."

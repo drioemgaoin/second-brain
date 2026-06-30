@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { NoteCard } from "@/components/notes/note-card";
 import { DeleteModal } from "@/components/notes/delete-modal";
 import { AREAS } from "@/lib/constants";
@@ -66,13 +67,26 @@ export default function NotesPage() {
       <div className="h-16" />
 
       {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em" }}>Notes</h1>
-        {!loading && notes.length > 0 && (
-          <p className="text-base text-gray-500 dark:text-gray-400" style={{ marginTop: 8 }}>
-            {notes.length} {notes.length === 1 ? "note" : "notes"} in your knowledge base
-          </p>
-        )}
+      <div style={{ marginBottom: 32, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div>
+          <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em" }}>Notes</h1>
+          {!loading && notes.length > 0 && (
+            <p className="text-base text-gray-500 dark:text-gray-400" style={{ marginTop: 8 }}>
+              {notes.length} {notes.length === 1 ? "note" : "notes"} in your knowledge base
+            </p>
+          )}
+        </div>
+        <Link
+          href="/notes/new"
+          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+          style={{ padding: "10px 20px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 8 }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New Note
+        </Link>
       </div>
 
       {/* Search */}

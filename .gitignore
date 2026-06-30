@@ -1,6 +1,6 @@
 # Private notes (never pushed)
-notes/
-!notes/.gitkeep
+/notes/
+!/notes/.gitkeep
 
 # Secrets / local config
 .env

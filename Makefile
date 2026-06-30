@@ -150,7 +150,7 @@ deploy-build:
 	docker compose -f docker-compose.prod.yml build
 
 deploy-up:
-	docker compose -f docker-compose.prod.yml up -d
+	docker compose -f docker-compose.prod.yml up -d --force-recreate
 
 deploy-down:
 	docker compose -f docker-compose.prod.yml down

@@ -47,7 +47,7 @@ services:
       context: ./app/api
     container_name: second-brain-api
     environment:
-      GBRAIN_URL: http://gbrain:3002
+      GBRAIN_URL: http://gbrain:3003
       OLLAMA_BASE_URL: http://ollama:11434/v1
       CORS_ORIGIN: ${CORS_ORIGIN}
       CHAT_MODEL: ${CHAT_MODEL:-llama3.2}

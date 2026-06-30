@@ -14,6 +14,9 @@ if [ ! -f /root/.gbrain/config.json ]; then
   gbrain init --pglite --embedding-model "${EMBEDDING_MODEL:-ollama:nomic-embed-text}"
 fi
 
+# Ensure GBrain points to the Ollama container, not localhost
+gbrain config set ollama_host "${OLLAMA_HOST:-http://ollama:11434}"
+
 # GBrain binds to 127.0.0.1 only — use socat to expose on 0.0.0.0
 # so other containers can reach it.
 echo "Starting GBrain HTTP server on port 3002..."

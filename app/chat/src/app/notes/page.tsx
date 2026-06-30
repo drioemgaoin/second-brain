@@ -1,34 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { NoteCard } from "@/components/notes/note-card";
 import { DeleteModal } from "@/components/notes/delete-modal";
 import { AREAS } from "@/lib/constants";
 import { api, type NoteListItem } from "@/lib/api-client";
 import { useToast } from "@/components/toast";
-
-function GhostCard({ index }: { index: number }) {
-  const titles = ["Your first note goes here", "Add meeting notes", "Research findings", "Ideas & brainstorming"];
-  const areas = ["ai-learning", "hiring", "quantum-physics", "others"];
-  return (
-    <div
-      className="border-2 border-dashed border-gray-200 dark:border-gray-700"
-      style={{
-        borderRadius: 16,
-        padding: 24,
-        opacity: 0.4,
-      }}
-    >
-      <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 12 }} className="text-gray-400 dark:text-gray-500">
-        {titles[index % titles.length]}
-      </p>
-      <span style={{ fontSize: 12, fontWeight: 500, padding: "4px 12px", borderRadius: 8 }} className="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500">
-        {areas[index % areas.length]}
-      </span>
-    </div>
-  );
-}
 
 function SkeletonCard() {
   return (
@@ -89,39 +66,13 @@ export default function NotesPage() {
       <div className="h-16" />
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 32 }}>
-        <div>
-          <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em" }}>Notes</h1>
-          {!loading && notes.length > 0 && (
-            <p className="text-base text-gray-500 dark:text-gray-400" style={{ marginTop: 8 }}>
-              {notes.length} {notes.length === 1 ? "note" : "notes"} in your knowledge base
-            </p>
-          )}
-        </div>
-        <Link
-          href="/notes/new"
-          style={{
-            height: 44,
-            padding: "0 20px",
-            borderRadius: 12,
-            fontSize: 14,
-            fontWeight: 600,
-            background: "#2563eb",
-            color: "white",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-            marginTop: 4,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          New note
-        </Link>
+      <div style={{ marginBottom: 32 }}>
+        <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.025em" }}>Notes</h1>
+        {!loading && notes.length > 0 && (
+          <p className="text-base text-gray-500 dark:text-gray-400" style={{ marginTop: 8 }}>
+            {notes.length} {notes.length === 1 ? "note" : "notes"} in your knowledge base
+          </p>
+        )}
       </div>
 
       {/* Search */}
@@ -178,22 +129,22 @@ export default function NotesPage() {
 
           if (notes.length === 0) {
             return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
-                <div className="note-form-row" style={{ gap: 20 }}>
-                  {Array.from({ length: 4 }, (_, i) => (
-                    <GhostCard key={i} index={i} />
-                  ))}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 20px", textAlign: "center" }}>
+                <div style={{ fontSize: 64, marginBottom: 24, lineHeight: 1 }}>
+                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 dark:text-gray-600">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <line x1="10" y1="9" x2="8" y2="9" />
+                  </svg>
                 </div>
-                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-                  <p style={{ fontSize: 16, fontWeight: 500, color: "#6b7280" }}>Your knowledge base is empty</p>
-                  <p style={{ fontSize: 14, color: "#9ca3af" }}>Start by creating your first note.</p>
-                  <Link
-                    href="/notes/new"
-                    style={{ height: 44, padding: "0 28px", borderRadius: 12, fontSize: 14, fontWeight: 600, background: "#2563eb", color: "white", display: "inline-flex", alignItems: "center", justifyContent: "center", marginTop: 4 }}
-                  >
-                    Create a note
-                  </Link>
-                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }} className="text-gray-700 dark:text-gray-200">
+                  No notes yet
+                </h2>
+                <p style={{ fontSize: 15, maxWidth: 360, lineHeight: 1.6 }} className="text-gray-400 dark:text-gray-500">
+                  Chat with your Second Brain to capture ideas, meeting notes, and research. Notes you create will appear here.
+                </p>
               </div>
             );
           }

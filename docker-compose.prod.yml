@@ -21,7 +21,7 @@ services:
       - ollama-data:/root/.ollama
       - ./deploy/ollama/entrypoint.sh:/entrypoint.sh:ro
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
       retries: 30

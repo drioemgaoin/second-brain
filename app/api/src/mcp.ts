@@ -226,26 +226,40 @@ async function handleTool(
     }
 
     case "create_note": {
-      const slug = `${args.area}/${slugify(String(args.title))}`;
-      await putPage(
-        slug,
-        String(args.title),
-        String(args.area),
-        Array.isArray(args.tags) ? args.tags.map(String) : [],
-        String(args.content)
-      );
+      const title = String(args.title || "").trim();
+      const area = String(args.area || "").trim();
+      const content = String(args.content || "").trim();
+      if (!title) return textResult(JSON.stringify({ error: "Title is required" }));
+      if (!area) return textResult(JSON.stringify({ error: "Area is required" }));
+      if (!content) return textResult(JSON.stringify({ error: "Content is required" }));
+
+      const tags = Array.isArray(args.tags)
+        ? args.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean)
+        : [];
+      if (!tags.includes(area)) tags.unshift(area);
+
+      const slug = `${area}/${slugify(title)}`;
+      await putPage(slug, title, area, tags, content);
       return textResult(JSON.stringify({ created: true, slug }));
     }
 
     case "update_note": {
-      await putPage(
-        String(args.slug),
-        String(args.title),
-        String(args.area),
-        Array.isArray(args.tags) ? args.tags.map(String) : [],
-        String(args.content)
-      );
-      return textResult(JSON.stringify({ updated: true, slug: args.slug }));
+      const slug = String(args.slug || "").trim();
+      const title = String(args.title || "").trim();
+      const area = String(args.area || "").trim();
+      const content = String(args.content || "").trim();
+      if (!slug) return textResult(JSON.stringify({ error: "Slug is required" }));
+      if (!title) return textResult(JSON.stringify({ error: "Title is required" }));
+      if (!area) return textResult(JSON.stringify({ error: "Area is required" }));
+      if (!content) return textResult(JSON.stringify({ error: "Content is required" }));
+
+      const tags = Array.isArray(args.tags)
+        ? args.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean)
+        : [];
+      if (!tags.includes(area)) tags.unshift(area);
+
+      await putPage(slug, title, area, tags, content);
+      return textResult(JSON.stringify({ updated: true, slug }));
     }
 
     case "delete_note": {

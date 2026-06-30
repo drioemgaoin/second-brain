@@ -22,6 +22,9 @@ until docker exec second-brain-ollama ollama list >/dev/null 2>&1; do sleep 1; d
 echo "==> Pulling the free embedding model"
 docker exec second-brain-ollama ollama pull nomic-embed-text
 
+echo "==> Pulling the chat model (llama3.2)"
+docker exec second-brain-ollama ollama pull llama3.2
+
 echo "==> Smoke-testing the provider"
 gbrain providers test --model "$EMBEDDING_MODEL" || {
   echo "Provider test failed. Run 'gbrain doctor' for the exact fix."; exit 1; }

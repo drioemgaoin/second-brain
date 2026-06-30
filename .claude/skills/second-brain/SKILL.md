@@ -24,6 +24,12 @@ when_to_use: >
 
   DELETE: "delete my note", "remove my note", "archive my note"
 
+  KNOWLEDGE QUESTIONS: any question about a concept, technique, technology,
+  best practice, or "how does X work" / "what is X" / "explain X" / "best way to"
+  — these MUST search the knowledge base first before answering.
+  Examples: "what is RAG", "best chunking strategy", "how do embeddings work",
+  "explain transformers", "what evaluation framework should I use"
+
   DO NOT trigger on: "release notes", "take note of", "note that", "note:",
   "write a function", "search the codebase", or any use of "note" as a
   discourse marker rather than a reference to the personal knowledge base.
@@ -34,9 +40,19 @@ allowed-tools: mcp__second-brain__search_notes mcp__second-brain__list_notes mcp
 
 Use ONLY the `second-brain` MCP tools for all note operations. Never write files directly. Never use any other method.
 
+## Knowledge questions (HIGHEST PRIORITY)
+
+When the user asks any concept, technique, or knowledge question (even without mentioning "notes" or "brain"):
+
+1. Call `search_notes` with the topic as the query
+2. **If relevant results found (score > 0.5)**: answer based on the retrieved notes. Mention that the answer comes from their knowledge base and which note(s) it came from.
+3. **If no relevant results**: answer from general knowledge, clearly state "I didn't find anything in your knowledge base on this topic", and offer to save the answer as a new note.
+
+This ensures the personal knowledge base is ALWAYS the first source of truth.
+
 ## Searching
 
-When the user asks what they wrote about a topic, or wants to find notes:
+When the user explicitly asks what they wrote about a topic, or wants to find notes:
 
 1. Call `search_notes` with their query
 2. Present results as a numbered list: title, area, relevance score, one-line preview

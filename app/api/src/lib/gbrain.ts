@@ -34,39 +34,129 @@ export interface GBrainListItem {
 // MCP transport
 // ---------------------------------------------------------------------------
 
+const log = (level: "info" | "error", msg: string) => {
+  const ts = new Date().toISOString().slice(11, 19);
+  const fn = level === "error" ? console.error : console.log;
+  fn(`${ts} [gbrain] ${msg}`);
+};
+
 function getGBrainUrl(): string {
   const url = process.env.GBRAIN_URL;
   if (!url) {
     throw new Error(
-      "GBRAIN_URL is not set. Start GBrain HTTP: gbrain serve --http --port 3002"
+      "GBRAIN_URL is not set. Start GBrain HTTP: gbrain serve --http --port 3002 --enable-dcr"
     );
   }
   return url;
 }
 
-async function mcpCall(
-  toolName: string,
-  args: Record<string, unknown>
-): Promise<unknown> {
-  const baseUrl = getGBrainUrl();
+// -- OAuth 2.1 (Dynamic Client Registration + client_credentials) -----------
 
-  const res = await fetch(`${baseUrl}/mcp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: toolName, arguments: args },
-    }),
-  });
+let cachedToken: { value: string; expiresAt: number } | null = null;
+let cachedClientCreds: { id: string; secret: string } | null = null;
 
-  if (!res.ok) {
-    throw new Error(`GBrain HTTP ${toolName} failed (${res.status})`);
+async function getAccessToken(baseUrl: string): Promise<string> {
+  // Return cached token if still valid (with 30s margin)
+  if (cachedToken && Date.now() < cachedToken.expiresAt - 30_000) {
+    return cachedToken.value;
   }
 
-  const json = (await res.json()) as Record<string, unknown>;
+  // Register client if needed (DCR)
+  if (!cachedClientCreds) {
+    log("info", "registering OAuth client via DCR");
+    const regRes = await fetch(`${baseUrl}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_name: "second-brain-api",
+        grant_types: ["client_credentials"],
+        redirect_uris: [`http://localhost:${process.env.PORT || 3001}/callback`],
+        token_endpoint_auth_method: "client_secret_post",
+        scope: "admin read write",
+      }),
+    });
+    if (!regRes.ok) {
+      const body = await regRes.text().catch(() => "");
+      throw new Error(
+        `OAuth client registration failed (${regRes.status}). ` +
+        `Make sure GBrain is started with --enable-dcr. ${body.slice(0, 200)}`
+      );
+    }
+    const reg = (await regRes.json()) as { client_id: string; client_secret: string };
+    cachedClientCreds = { id: reg.client_id, secret: reg.client_secret };
+    log("info", `OAuth client registered: ${reg.client_id}`);
+  }
+
+  // Exchange for access token
+  const tokenRes = await fetch(`${baseUrl}/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: cachedClientCreds.id,
+      client_secret: cachedClientCreds.secret,
+      scope: "admin read write",
+    }),
+  });
+  if (!tokenRes.ok) {
+    // Reset client in case it expired
+    cachedClientCreds = null;
+    const body = await tokenRes.text().catch(() => "");
+    throw new Error(`OAuth token exchange failed (${tokenRes.status}): ${body.slice(0, 200)}`);
+  }
+
+  const tok = (await tokenRes.json()) as { access_token: string; expires_in?: number };
+  const expiresIn = tok.expires_in ?? 3600;
+  cachedToken = { value: tok.access_token, expiresAt: Date.now() + expiresIn * 1000 };
+  log("info", `OAuth token acquired (expires in ${expiresIn}s)`);
+  return cachedToken.value;
+}
+
+// ---------------------------------------------------------------------------
+
+async function parseResponse(res: Response): Promise<unknown> {
+  const contentType = res.headers.get("content-type") || "";
+
+  let json: Record<string, unknown>;
+
+  if (contentType.includes("text/event-stream")) {
+    // SSE: collect "data:" lines until we find the JSON-RPC result
+    const raw = await res.text();
+    const lines = raw.split("\n");
+    let resultJson: Record<string, unknown> | null = null;
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (!data || data === "[DONE]") continue;
+      try {
+        const parsed = JSON.parse(data) as Record<string, unknown>;
+        // The final message contains "result" with the tool output
+        if (parsed.result || parsed.error) {
+          resultJson = parsed;
+        }
+      } catch {
+        // skip non-JSON data lines
+      }
+    }
+
+    if (!resultJson) return null;
+    json = resultJson;
+  } else {
+    json = (await res.json()) as Record<string, unknown>;
+  }
+
+  if (json.error) {
+    const err = json.error as { message?: string };
+    throw new Error(`GBrain RPC error: ${err.message || JSON.stringify(json.error)}`);
+  }
+
   const result = json?.result as Record<string, unknown> | undefined;
+  if (result?.isError) {
+    const content = result.content as { type: string; text: string }[] | undefined;
+    const errText = content?.[0]?.text || "unknown error";
+    throw new Error(`GBrain tool error: ${errText}`);
+  }
   const content = result?.content;
   if (!Array.isArray(content)) return null;
 
@@ -80,6 +170,64 @@ async function mcpCall(
   } catch {
     return text;
   }
+}
+
+async function mcpCall(
+  toolName: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const baseUrl = getGBrainUrl();
+  const token = await getAccessToken(baseUrl);
+
+  const url = `${baseUrl}/mcp`;
+  const body = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name: toolName, arguments: args },
+  };
+
+  log("info", `${toolName} → ${url}`);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (res.status === 401) {
+    // Token expired — clear cache and retry once
+    log("info", `${toolName}: token expired, refreshing`);
+    cachedToken = null;
+    const newToken = await getAccessToken(baseUrl);
+    const retry = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: `Bearer ${newToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!retry.ok) {
+      const snippet = (await retry.text().catch(() => "")).slice(0, 200);
+      log("error", `${toolName} failed after token refresh: HTTP ${retry.status} — ${snippet}`);
+      throw new Error(`GBrain ${toolName} failed (${retry.status})`);
+    }
+    return parseResponse(retry);
+  }
+
+  if (!res.ok) {
+    const snippet = (await res.text().catch(() => "")).slice(0, 200);
+    log("error", `${toolName} failed: HTTP ${res.status} — ${snippet}`);
+    throw new Error(`GBrain ${toolName} failed (${res.status})`);
+  }
+
+  return parseResponse(res);
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +253,7 @@ export async function queryBrain(
       return result.map((item: Record<string, unknown>) => ({
         slug: String(item.slug || item.page_slug || ""),
         title: String(item.title || item.slug || ""),
-        content: String(item.content || item.text || item.chunk || ""),
+        content: String(item.chunk_text || item.content || item.text || item.chunk || ""),
         score: Number(item.score || item.rank_score || 0),
       }));
     }
@@ -249,14 +397,27 @@ export async function getPage(slug: string): Promise<GBrainPage | null> {
 
     if (result && typeof result === "object") {
       const page = result as Record<string, unknown>;
-      const rawContent = String(page.content || page.markdown || "");
+      const frontmatter = (page.frontmatter || {}) as Record<string, unknown>;
+
+      // GBrain stores rendered content in compiled_truth, raw in content
+      const rawContent = String(page.compiled_truth || page.content || page.markdown || "");
       const parsed = parseFrontmatter(rawContent);
+
+      // Area: frontmatter > parsed > slug prefix
+      const pageArea = String(frontmatter.area || page.area || parsed.area || extractArea(String(page.slug || slug)));
+      // Tags: page-level > parsed
+      const pageTags = Array.isArray(page.tags) ? page.tags.map(String) : parsed.tags;
+      // Title: page-level > parsed from markdown
+      const pageTitle = String(page.title || parsed.title || "");
+      // Content: strip frontmatter and title heading
+      const body = parsed.body.replace(/^#\s+.+\n*/, "").trim();
+
       return {
         slug: String(page.slug || slug),
-        title: String(page.title || parsed.title),
-        area: String(page.area || parsed.area),
-        tags: Array.isArray(page.tags) ? page.tags.map(String) : parsed.tags,
-        content: parsed.body.replace(/^#\s+.+\n*/, "").trim(),
+        title: pageTitle,
+        area: pageArea,
+        tags: pageTags,
+        content: body,
       };
     }
 

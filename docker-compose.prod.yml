@@ -3,14 +3,29 @@
 #   cp deploy/.env.example .env   (edit with your domain)
 #   make deploy-build
 #   make deploy-up
-#   make deploy-pull-model
+#
+# Models are pulled automatically on first start.
+# To run Ollama on a dedicated GPU server in the future, extract the
+# ollama service into its own compose file and point OLLAMA_HOST at
+# the remote address (e.g. http://gpu-server:11434).
 
 services:
   ollama:
     image: ollama/ollama:latest
     container_name: second-brain-ollama
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    environment:
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+      CHAT_MODEL: ${CHAT_MODEL:-llama3.2}
     volumes:
       - ollama-data:/root/.ollama
+      - ./deploy/ollama/entrypoint.sh:/entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     restart: unless-stopped
 
   gbrain:
@@ -23,7 +38,8 @@ services:
     volumes:
       - gbrain-data:/root/.gbrain
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
 
   api:
@@ -37,8 +53,10 @@ services:
       CHAT_MODEL: ${CHAT_MODEL:-llama3.2}
       PORT: "3001"
     depends_on:
-      - gbrain
-      - ollama
+      gbrain:
+        condition: service_started
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
 
   caddy:

@@ -3,6 +3,11 @@
 EMBEDDING_MODEL ?= ollama:nomic-embed-text
 CHAT_MODEL     ?= llama3.2
 
+# Ports — override on the command line: make dev API_PORT=4001
+GBRAIN_PORT ?= 3002
+API_PORT    ?= 3001
+CHAT_PORT   ?= 3000
+
 .PHONY: help up down pull-model pull-chat-model init mcp seed import doctor search note logs \
         api-setup api-dev api-build chat-setup chat-dev chat-build serve dev setup \
         deploy-build deploy-up deploy-down deploy-logs deploy-pull-model deploy-seed deploy-import
@@ -17,7 +22,7 @@ help:
 	@echo "    make pull-chat-model Download the chat model ($(CHAT_MODEL))"
 	@echo "    make init            Create the local PGLite brain"
 	@echo "    make mcp             Wire the brain into Claude Code"
-	@echo "    make serve           Start GBrain HTTP server (port 3002)"
+	@echo "    make serve           Start GBrain HTTP server (port $(GBRAIN_PORT))"
 	@echo "    make seed            Load the public examples into the brain"
 	@echo "    make import          Load your private notes into the brain"
 	@echo "    make note area=ai-learning title=\"...\"   Create a tagged note"
@@ -25,12 +30,12 @@ help:
 	@echo "    make doctor          Health check"
 	@echo "    make logs            Tail Ollama logs"
 	@echo ""
-	@echo "  API service (port 3001):"
+	@echo "  API service (port $(API_PORT)):"
 	@echo "    make api-setup       Install API dependencies"
 	@echo "    make api-dev         Start API dev server"
 	@echo "    make api-build       Build API for production"
 	@echo ""
-	@echo "  Chat frontend (port 3000):"
+	@echo "  Chat frontend (port $(CHAT_PORT)):"
 	@echo "    make chat-setup      Install chat frontend dependencies"
 	@echo "    make chat-dev        Start chat frontend dev server"
 	@echo "    make chat-build      Build chat frontend for production"
@@ -39,12 +44,16 @@ help:
 	@echo "    make setup           Install all dependencies"
 	@echo "    make dev             Start everything for local development"
 	@echo ""
+	@echo "  Ports (override with env vars):"
+	@echo "    GBRAIN_PORT=$(GBRAIN_PORT)  API_PORT=$(API_PORT)  CHAT_PORT=$(CHAT_PORT)"
+	@echo "    Example: make dev API_PORT=4001 CHAT_PORT=4000"
+	@echo ""
 	@echo "  Production deployment (VPS):"
 	@echo "    make deploy-build    Build production Docker images"
-	@echo "    make deploy-up       Start production stack"
+	@echo "    make deploy-up       Start production stack (models auto-pulled)"
 	@echo "    make deploy-down     Stop production stack"
 	@echo "    make deploy-logs     Tail production logs"
-	@echo "    make deploy-pull-model  Pull Ollama models in production"
+	@echo "    make deploy-pull-model  Manually re-pull Ollama models"
 	@echo "    make deploy-seed     Load example notes in production"
 	@echo "    make deploy-import   Import notes in production"
 
@@ -66,11 +75,11 @@ init:
 	gbrain init --pglite --embedding-model $(EMBEDDING_MODEL)
 
 mcp:
-	claude mcp add --transport http second-brain http://localhost:3001/mcp
+	claude mcp add --transport http second-brain http://localhost:$(API_PORT)/mcp
 
 # Start GBrain HTTP server (the API service connects to this)
 serve:
-	gbrain serve --http --port 3002
+	gbrain serve --http --port $(GBRAIN_PORT) --enable-dcr
 
 seed:
 	gbrain import brain/examples/
@@ -105,7 +114,7 @@ api-setup:
 	cd app/api && npm install
 
 api-dev:
-	cd app/api && npm run dev
+	cd app/api && PORT=$(API_PORT) GBRAIN_URL=http://localhost:$(GBRAIN_PORT) npm run dev
 
 api-build:
 	cd app/api && npm run build
@@ -116,7 +125,7 @@ chat-setup:
 	cd app/chat && npm install
 
 chat-dev:
-	cd app/chat && npm run dev
+	cd app/chat && NEXT_PUBLIC_API_URL=http://localhost:$(API_PORT) npm run dev -- --port $(CHAT_PORT)
 
 chat-build:
 	cd app/chat && npm run build
@@ -128,12 +137,12 @@ chat-build:
 dev:
 	@echo "Starting Ollama..."
 	@docker compose up -d
-	@echo "Starting GBrain HTTP on :3002, API on :3001, Chat on :3000..."
+	@echo "Starting GBrain HTTP on :$(GBRAIN_PORT), API on :$(API_PORT), Chat on :$(CHAT_PORT)..."
 	@echo "Press Ctrl+C to stop."
 	@trap 'kill 0' EXIT; \
-		gbrain serve --http --port 3002 & \
-		sleep 2 && cd app/api && npm run dev & \
-		cd app/chat && npm run dev
+		gbrain serve --http --port $(GBRAIN_PORT) --enable-dcr & \
+		sleep 2 && cd app/api && PORT=$(API_PORT) GBRAIN_URL=http://localhost:$(GBRAIN_PORT) npm run dev & \
+		cd app/chat && NEXT_PUBLIC_API_URL=http://localhost:$(API_PORT) npm run dev -- --port $(CHAT_PORT)
 
 # --- Production deployment (VPS) ---
 
